@@ -13,27 +13,41 @@ let peek () = !glob_in.[!glob_cursor]
 
 let pop () = let c = peek() in incr glob_cursor; c
 
-let is_delim c =
-  c == ' ' || c == '(' || c == ')' || c == '\n' || c == ','
+let is_space c = c = ' ' || c = '\n'
+
+(* don't over think it... *)
+let is_alphanum c =
+  (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')
 
 let parse_ident () =
-  if is_delim (peek ()) then
+  if eof () || not (is_alphanum (peek ())) then
     begin
       let err = sprintf "Expected alphanum at %d" (!glob_cursor) in
       raise (Parse_Error (err, !glob_cursor))
     end;
   let pos = !glob_cursor in
   let len = ref 0 in
-  while not (eof () || is_delim (peek ())) do
+  while (not (eof ())) && is_alphanum (peek ()) do
     ignore (pop ());
     incr len;
   done;
   String.sub !glob_in pos !len
 
+let parse_space () =
+  while (not (eof ())) && is_space (peek ()) do
+    ignore (pop ());
+  done
+
+let parse_char c =
+  if (not (eof ())) && (peek () = c) then ignore (pop ())
+  else
+    let err = sprintf "Expected %c at position %d" c !glob_cursor in
+    raise (Parse_Error (err, !glob_cursor))
+
 let parse_key key =
   let pos = !glob_cursor in
   let str_pos = ref 0 in
-  while !str_pos < String.length key && pop () == key.[!str_pos] do
+  while !str_pos < String.length key && pop () = key.[!str_pos] do
     incr str_pos;
   done;
   if !str_pos != String.length key then
@@ -41,37 +55,41 @@ let parse_key key =
       let err = sprintf "Expected %s at position %d" key pos in
       raise (Parse_Error (err, pos))
     end;
-  ()
+  parse_space ()
 
-let space c = c == ' ' || c == '\n'
-let comma c = c == ','
+let paren p =
+  parse_char '(';
+  let v = p () in
+  parse_char ')';
+  v
+
+let comma () = parse_char ','
 
 let rec parse_list sep p =
-  try let v = p() in
-      if sep (peek ()) then
-        begin
-          ignore (pop ());
-          v :: parse_list sep p
-        end
-      else [v]
+  try
+    let v = p () in
+    try
+      sep ();
+      v :: parse_list sep p
+    with
+    | Parse_Error _ -> [v]
   with
   | Parse_Error _ -> []
 
 
 let parse_vars () =
-  parse_key "(VAR ";
-  let vs = parse_list space parse_ident in
-  parse_key ")";
-  vs
+  let vars () =
+    parse_key "VAR";
+    parse_list parse_space parse_ident
+  in
+  paren vars
 
 let rec parse_arg_list vars () =
-  parse_key "(";
-  let args = parse_list comma (parse_term vars) in
-  parse_key ")";
-  args
+  let args () = parse_list comma (parse_term vars) in
+  paren args
 and parse_term vars () =
   let f = parse_ident () in
-  if not (eof ()) && peek () == '(' then
+  if not (eof ()) && peek () = '(' then
     let args = parse_arg_list vars () in
     App(f, args)
   else if List.mem f vars then
@@ -91,25 +109,31 @@ let parse_rule vars () =
   { r_lhs = t1; r_rhs = t2}
 
 let parse_rules vars () =
-parse_key "(RULES ";
-  let rules = parse_list space (parse_rule vars) in
-  parse_key ")";
-  rules
+  let rules () =
+    parse_key "RULES";
+    parse_list parse_space (parse_rule vars)
+  in
+  paren rules
 
 let parse_theory vars () =
-  parse_key "(EQUATIONS ";
-  let eqns = parse_list space (parse_equation vars) in
-  parse_key ")";
-  eqns
+  let eqns () =
+    parse_key "EQUATIONS";
+    parse_list parse_space (parse_equation vars)
+  in
+  paren eqns
 
 let parse_theories vars () =
-  parse_key "(THEORY ";
-  let th = parse_list space (parse_theory vars) in
-  parse_key ")";
-  List.hd th
+  let theory () =
+    parse_key "THEORY";
+    parse_list parse_space (parse_theory vars)
+  in
+  let ret = paren theory in
+  List.hd ret
 
 let parse_spec () =
   let vars = parse_vars () in
+  parse_space ();
   let theory = parse_theories vars () in
+  parse_space ();
   let rules = parse_rules vars () in
   { vars = vars; eqns = theory; rules = rules }

@@ -1,0 +1,11 @@
+(VAR X Y Z)
+(THEORY
+  (EQUATIONS
+    m(1,X) == X
+    m(X,1) == X
+    m(X,i(X)) == 1
+    m(i(X),X) == 1
+    m(m(X,Y),Z) == m(X,m(Y,Z))
+   )
+)
+(RULES )
