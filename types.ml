@@ -7,5 +7,5 @@ type rule = { r_lhs : term; r_rhs : term }
 type trs = {
     vars : string list;
     eqns : eqn list;
-    rules : unit;
+    rules : rule list;
   }

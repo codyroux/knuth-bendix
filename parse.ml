@@ -84,6 +84,17 @@ let parse_equation vars () =
   let t2 = parse_term vars () in
   { eq_lhs = t1; eq_rhs = t2}
 
+let parse_rule vars () =
+  let t1 = parse_term vars () in
+  parse_key " -> ";
+  let t2 = parse_term vars () in
+  { r_lhs = t1; r_rhs = t2}
+
+let parse_rules vars () =
+parse_key "(RULES ";
+  let rules = parse_list space (parse_rule vars) in
+  parse_key ")";
+  rules
 
 let parse_theory vars () =
   parse_key "(EQUATIONS ";
@@ -96,3 +107,9 @@ let parse_theories vars () =
   let th = parse_list space (parse_theory vars) in
   parse_key ")";
   List.hd th
+
+let parse_spec () =
+  let vars = parse_vars () in
+  let theory = parse_theories vars () in
+  let rules = parse_rules vars () in
+  { vars = vars; eqns = theory; rules = rules }

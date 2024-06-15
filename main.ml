@@ -5,6 +5,9 @@ open Parse
 
 type precedence = string -> string -> int
 
+(* Turns a list into a precedence, (a well-founded partial order on
+   function symbols) e.g. the precendence [["a"; "b"]; ["f"; "g"];
+   ["h"]] denotes a ~ b < f ~ g < h *)
 let list_to_prec ll =
   fun s1 s2 ->
   let i1 = List.find_index (List.mem s1) ll in
@@ -23,20 +26,30 @@ let rec lpo (prec : precedence) t1 t2 =
         (* Handled by the lpo_eq case*)
         | Var _ -> false
         | App (g, us) ->
-           (assert false)
-           || (assert false)
+           if prec g f < 0 then
+             List.for_all (fun ui -> lpo prec t1 ui) us
+           else if prec g f == 0 then (* hard case! *)
+             lex_lpo prec ts us
+           else false
         end
 and lpo_eq prec t1 t2 =
   t1 == t2
-  || (assert false)
+  || lpo prec t1 t2
+and lex_lpo prec ts us =
+  match ts, us with
+  | [], _ -> false
+  | _, [] -> false
+  | t::ts, u::us ->
+     if lpo prec t u then true
+     else if t == u then lex_lpo prec ts us
+     else false
 
 (* Run with: *)
 (* ocamlbuild -r main.native && ./main.native *)
 let () =
-  glob_in := "(VAR X Y Z)(THEORY (EQUATIONS f(X,Y) == Y))";
+  glob_in := "(VAR X Y Z)(THEORY (EQUATIONS f(X,Y) == Y))(RULES g(X,Y) -> X g(X,Y) -> f(X,Y))";
   glob_cursor := 0;
-  let vars = parse_vars () in
-  let theories = parse_theories vars () in
-  print_vars stdout vars;
-  print_eqns stdout theories;
-
+  let trs = parse_spec () in
+  print_trs stdout trs;
+  let test_prec = list_to_prec [["f"]; ["g"]] in
+  printf "f comp g is %d\n" (test_prec "g" "f")
