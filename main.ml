@@ -44,6 +44,47 @@ and lex_lpo prec ts us =
      else if t = u then lex_lpo prec ts us
      else false
 
+(* E + {s = s}, R  ~> E, R *)
+let delete trs =
+  let eqs = List.filter (fun e -> e.eq_lhs <> e.eq_rhs) trs.eqns in
+  if List.length eqs <> List.length trs.eqns then
+    Some { trs with eqns = eqs }
+  else None
+
+(* E, R + {s -> t} ~> E, R + {s -> u} if t ->* u *)
+let compose trs = assert false
+
+(* E + {s = t}, R ~> E + {s = u}, R if t ->* u *)
+let simplify trs = assert false
+
+(* E + {s = t}, R ~> E, R + {s -> t} if s > t *)
+let orient trs = assert false
+
+(* E, R + {s -> t} ~> E + {v = t}, R if s "collapses to" v
+   see https://homepage.divms.uiowa.edu/~astump/papers/thesis-wehrman.pdf
+*)
+let collapse trs = assert false
+
+(* E, R ~> E + {s = t}, R if s <- . -> t is a critical pair of R*)
+let deduce trs = assert false
+
+(* opportunities for optimization here *)
+let rec saturate step_funs trs =
+  (* we assume step_funs are in rough order of cost *)
+  let rec saturate_step step_funs =
+    match step_funs with
+    | f::fs ->
+       begin
+         match f trs with
+         | None -> saturate_step fs
+         | Some trs' -> Some trs'
+       end
+    | [] -> None
+  in
+  match saturate_step step_funs with
+  | None -> trs
+  | Some trs' -> saturate step_funs trs'
+
 let read_whole_file filename =
     (* open_in_bin works correctly on Unix and Windows *)
     let ch = open_in_bin filename in
@@ -53,17 +94,16 @@ let read_whole_file filename =
 (* Run with: *)
 (* ocamlbuild -r main.native && ./main.native *)
 let () =
-  (* glob_in := "(VAR X Y Z)\n(THEORY\n(EQUATIONS\nf(X,Y) == Y))\n(RULES \ng(X,Y) -> X\ng(X,Y) -> f(X,Y))"; *)
   glob_in := read_whole_file "group.trs";
   glob_cursor := 0;
   let trs = parse_spec () in
   print_trs stdout trs;
-  let test_prec = list_to_prec [["1"];["i"];["m"]] in
+  (* We magically know that this order will do *)
+  let test_prec = list_to_prec [["1"];["m"];["i"]] in
   for i = 0 to List.length trs.eqns - 1 do
     let eq = List.nth trs.eqns i in
     let lhs = eq.eq_lhs in
     let rhs = eq.eq_rhs in
     let is_gt = lpo test_prec lhs rhs in
     printf "%a > %a   %B\n" print_term lhs print_term rhs is_gt;
-    printf "%a > %a   %B\n" print_term rhs print_term lhs (lpo test_prec rhs lhs);
   done

@@ -50,7 +50,7 @@ let parse_key key =
   while !str_pos < String.length key && pop () = key.[!str_pos] do
     incr str_pos;
   done;
-  if !str_pos != String.length key then
+  if !str_pos <> String.length key then
     begin
       let err = sprintf "Expected %s at position %d" key pos in
       raise (Parse_Error (err, pos))
