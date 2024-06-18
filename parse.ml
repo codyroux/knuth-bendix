@@ -93,7 +93,7 @@ and parse_term vars () =
     let args = parse_arg_list vars () in
     App(f, args)
   else if List.mem f vars then
-    Var(f)
+    var f
   else App(f, [])
 
 let parse_equation vars () =

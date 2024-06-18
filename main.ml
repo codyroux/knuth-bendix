@@ -44,6 +44,42 @@ and lex_lpo prec ts us =
      else if t = u then lex_lpo prec ts us
      else false
 
+module SMap = Map.Make(String)
+
+let rec term_subst subst t =
+  match t with
+  | Var (_, s) when SMap.mem s subst -> SMap.find s subst
+  | Var _ -> t
+  | App (f, ts) -> App (f, List.map (term_subst subst) ts)
+
+let rec term_match subst p t =
+  match p, t with
+  | Var (_, s), _ ->
+     begin
+       match SMap.find_opt s subst with
+       | None -> Some (SMap.add s t subst)
+       | Some u ->
+          if t = u then Some subst
+          else None
+     end
+  | App (f, ts), App (g, us) when f = g ->
+     begin
+       try
+         List.fold_left2
+           (fun substOpt p t ->
+             match substOpt with
+             | None -> None
+             | Some subst -> term_match subst p t
+           )
+           (Some SMap.empty)
+           ts
+           us
+       with
+       (* FIXME: Potential footgun*)
+       | Invalid_argument _ -> None
+     end
+  | _ -> None
+
 (* E + {s = s}, R  ~> E, R *)
 let delete trs =
   let eqs = List.filter (fun e -> e.eq_lhs <> e.eq_rhs) trs.eqns in
@@ -106,4 +142,6 @@ let () =
     let rhs = eq.eq_rhs in
     let is_gt = lpo test_prec lhs rhs in
     printf "%a > %a   %B\n" print_term lhs print_term rhs is_gt;
-  done
+  done;
+  let trs = saturate [delete] trs in
+  print_trs stdout trs
