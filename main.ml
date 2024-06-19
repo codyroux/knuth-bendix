@@ -44,20 +44,41 @@ and lex_lpo prec ts us =
      else if t = u then lex_lpo prec ts us
      else false
 
-module SMap = Map.Make(String)
+module Var =
+  struct
+    type t = bool * string
+    let compare (b1, s1) (b2, s2) =
+      match Bool.compare b1 b2 with
+      | 0 -> String.compare s1 s2
+      | x -> x
+  end
 
-let rec term_subst subst t =
+module VarMap = Map.Make(Var)
+
+let rec var_apply map t =
   match t with
-  | Var (_, s) when SMap.mem s subst -> SMap.find s subst
-  | Var _ -> t
-  | App (f, ts) -> App (f, List.map (term_subst subst) ts)
+  | Var (b, s) -> map b s
+  | App (f, ts) -> App (f, List.map (var_apply map) ts)
+
+let set_var_tag b t =
+  let apply _ s =
+    Var (b, s)
+  in
+  var_apply apply t
+
+let term_subst subst t =
+  let apply b s =
+    if VarMap.mem (b, s) subst then VarMap.find (b, s) subst
+    else Var (b, s)
+  in
+  var_apply apply t
 
 let rec term_match subst p t =
   match p, t with
-  | Var (_, s), _ ->
+  | Var (b, s), _ ->
      begin
-       match SMap.find_opt s subst with
-       | None -> Some (SMap.add s t subst)
+       match VarMap.find_opt (b, s) subst with
+       | None -> Some (VarMap.add (b, s) t subst)
        | Some u ->
           if t = u then Some subst
           else None
@@ -71,7 +92,7 @@ let rec term_match subst p t =
              | None -> None
              | Some subst -> term_match subst p t
            )
-           (Some SMap.empty)
+           (Some VarMap.empty)
            ts
            us
        with
