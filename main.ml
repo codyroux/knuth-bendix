@@ -228,7 +228,7 @@ let () =
   let term = parse_term vars () in
   printf "%a\n" print_term term;
   let term0 = apply_head rule term in
-  let term1 = bottom_up (apply_head rule) term in
+  let term1 = bottom_up (bottom_up apply_head rule) term in
   let term2 = top_down (apply_head rule) term in
   printf "%a\n" print_term (Option.get term0);
   printf "%a\n" print_term (Option.get term1);
