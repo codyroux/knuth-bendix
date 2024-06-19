@@ -228,9 +228,18 @@ let () =
   let term = parse_term vars () in
   printf "%a\n" print_term term;
   let term0 = apply_head rule term in
-  let term1 = bottom_up (bottom_up apply_head rule) term in
-  let term2 = top_down (apply_head rule) term in
+  let bottom_up = bottom_up (apply_head rule) in
+  let term1 = bottom_up term in
+  let top_down = top_down (apply_head rule) in
+  let term2 = top_down term in
+  let rec repeat f t =
+    match f t with
+    | None -> t
+    | Some t' -> repeat f t'
+  in
   printf "%a\n" print_term (Option.get term0);
   printf "%a\n" print_term (Option.get term1);
   printf "%a\n" print_term (Option.get term2);
+  printf "%a\n" print_term (repeat bottom_up term);
+  printf "%a\n" print_term (repeat top_down term);
   ()
