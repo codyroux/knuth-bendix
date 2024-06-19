@@ -60,6 +60,27 @@ let rec var_apply map t =
   | Var (b, s) -> map b s
   | App (f, ts) -> App (f, List.map (var_apply map) ts)
 
+(* Applies a "single pass" of top down rewrites, which stops recursing
+   as soon as a rule fires *)
+let rec top_down rew t =
+  match t with
+  | Var _ -> t (* no rewrites at variables! *)
+  | App (f, ts) ->
+     begin
+       match rew t with
+       | None -> App (f, (List.map (top_down rew) ts))
+       | Some t' -> t'
+     end
+
+let rec bottom_up rew t =
+  match t with
+  | Var _ -> t (* no rewrites at variables! *)
+  | App (f, ts) ->
+     let t = App (f, (List.map (top_down rew) ts)) in
+     match rew t with
+     | None -> t
+     | Some t -> t
+
 let set_var_tag b t =
   let apply _ s =
     Var (b, s)
