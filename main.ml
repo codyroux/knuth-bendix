@@ -60,26 +60,49 @@ let rec var_apply map t =
   | Var (b, s) -> map b s
   | App (f, ts) -> App (f, List.map (var_apply map) ts)
 
+let rec lift_opt l =
+  match l with
+  | [] -> Some []
+  | x::xs ->
+     match x, lift_opt xs with
+     | Some x, Some xs -> Some (x::xs)
+     | _, _ -> None
+
+(* Returns the list with the "first rewrite" applied if any, and None
+   otherwise *)
+let rec first_of_list rew ts =
+    match ts with
+    | [] -> None
+    | t::ts ->
+       match rew t with
+       | Some t -> Some (t::ts)
+       | None -> Option.map (fun ts -> t::ts) (first_of_list rew ts)
+
 (* Applies a "single pass" of top down rewrites, which stops recursing
    as soon as a rule fires *)
 let rec top_down rew t =
   match t with
-  | Var _ -> t (* no rewrites at variables! *)
+  | Var _ -> None (* no rewrites at variables! *)
   | App (f, ts) ->
-     begin
-       match rew t with
-       | None -> App (f, (List.map (top_down rew) ts))
-       | Some t' -> t'
-     end
+     match rew t with
+     | None ->
+        let ts = top_down_list rew ts in
+        Option.map (fun ts -> App (f, ts)) ts
+     | Some t' -> Some t'
+and top_down_list rew ts =
+  (* Succeed if at least one rewrite succeeds *)
+  first_of_list (top_down rew) ts
 
 let rec bottom_up rew t =
   match t with
-  | Var _ -> t (* no rewrites at variables! *)
+  | Var _ -> None (* no rewrites at variables! *)
   | App (f, ts) ->
-     let t = App (f, (List.map (top_down rew) ts)) in
-     match rew t with
-     | None -> t
-     | Some t -> t
+     let ts = bottom_up_list rew ts in
+     match ts with
+     | None -> rew t
+     | Some ts' -> Some (App (f, ts'))
+and bottom_up_list rew ts =
+  first_of_list (bottom_up rew) ts
 
 let set_var_tag b t =
   let apply _ s =
@@ -194,4 +217,20 @@ let () =
     printf "%a > %a   %B\n" print_term lhs print_term rhs is_gt;
   done;
   let trs = saturate [delete] trs in
-  print_trs stdout trs
+  print_trs stdout trs;
+  glob_in := "f(X,Y) -> g(Y,X)";
+  glob_cursor := 0;
+  let vars = ["X"; "Y"] in
+  let rule = parse_rule vars () in
+  printf "%a\n" print_rule rule;
+  glob_in := "f(f(a,b),f(c,d))";
+  glob_cursor := 0;
+  let term = parse_term vars () in
+  printf "%a\n" print_term term;
+  let term0 = apply_head rule term in
+  let term1 = bottom_up (apply_head rule) term in
+  let term2 = top_down (apply_head rule) term in
+  printf "%a\n" print_term (Option.get term0);
+  printf "%a\n" print_term (Option.get term1);
+  printf "%a\n" print_term (Option.get term2);
+  ()
