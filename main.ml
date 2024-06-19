@@ -122,6 +122,14 @@ let rec term_match subst p t =
      end
   | _ -> None
 
+
+let apply_head rule t =
+  let lhs = rule.r_lhs in
+  let rhs = rule.r_rhs in
+  match term_match VarMap.empty lhs t with
+  | None -> None
+  | Some sigma -> Some (term_subst sigma rhs)
+  
 (* E + {s = s}, R  ~> E, R *)
 let delete trs =
   let eqs = List.filter (fun e -> e.eq_lhs <> e.eq_rhs) trs.eqns in
