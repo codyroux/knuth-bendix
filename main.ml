@@ -166,8 +166,35 @@ let compose trs = assert false
 (* E + {s = t}, R ~> E + {s = u}, R if t ->* u *)
 let simplify trs = assert false
 
+(* We keep a global precedence *)
+let global_prec = ref (fun f g -> 0) (* This is the most permissive
+                                        precendence, it only strictly
+                                        smaller rhs *)
+
 (* E + {s = t}, R ~> E, R + {s -> t} if s > t *)
-let orient trs = assert false
+let orient trs =
+  let eqns = trs.eqns in
+  let orient e =
+    let lhs = e.eq_lhs in
+    let rhs = e.eq_rhs in
+    if lpo !global_prec e.eq_lhs e.eq_rhs then
+      Some { r_lhs = lhs; r_rhs = rhs }
+    else if lpo !global_prec e.eq_rhs e.eq_lhs then
+      Some { r_lhs = rhs; r_rhs = lhs }
+    else None
+  in
+  let rec remove_first l acc =
+    match l with
+    | [] -> None
+    | e::es ->
+       match orient e with
+       | None -> remove_first es (e::acc)
+       | Some r -> Some (r, List.rev_append acc es)
+  in
+  match remove_first eqns [] with
+  | None -> None
+  | Some (r, eqns) ->
+     Some { trs with eqns = eqns; rules = r::trs.rules }
 
 (* E, R + {s -> t} ~> E + {v = t}, R if s "collapses to" v
    see https://homepage.divms.uiowa.edu/~astump/papers/thesis-wehrman.pdf
@@ -209,14 +236,15 @@ let () =
   print_trs stdout trs;
   (* We magically know that this order will do *)
   let test_prec = list_to_prec [["1"];["m"];["i"]] in
-  for i = 0 to List.length trs.eqns - 1 do
-    let eq = List.nth trs.eqns i in
-    let lhs = eq.eq_lhs in
-    let rhs = eq.eq_rhs in
-    let is_gt = lpo test_prec lhs rhs in
-    printf "%a > %a   %B\n" print_term lhs print_term rhs is_gt;
-  done;
-  let trs = saturate [delete] trs in
+  global_prec := test_prec;
+  (* for i = 0 to List.length trs.eqns - 1 do *)
+  (*   let eq = List.nth trs.eqns i in *)
+  (*   let lhs = eq.eq_lhs in *)
+  (*   let rhs = eq.eq_rhs in *)
+  (*   let is_gt = lpo test_prec lhs rhs in *)
+  (*   printf "%a > %a   %B\n" print_term lhs print_term rhs is_gt; *)
+  (* done; *)
+  let trs = saturate [delete; orient] trs in
   print_trs stdout trs;
   glob_in := "f(X,Y) -> g(Y,X)";
   glob_cursor := 0;
