@@ -104,6 +104,16 @@ let rec bottom_up rew t =
 and bottom_up_list rew ts =
   first_of_list (bottom_up rew) ts
 
+let rec saturate_step step_funs x =
+  match step_funs with
+  | f::fs ->
+     begin
+       match f x with
+       | None -> saturate_step fs x
+       | Some trs' -> Some trs'
+     end
+  | [] -> None
+
 let set_var_tag b t =
   let apply _ s =
     Var (b, s)
@@ -161,7 +171,18 @@ let delete trs =
   else None
 
 (* E, R + {s -> t} ~> E, R + {s -> u} if t ->* u *)
-let compose trs = assert false
+let compose trs =
+  let rules = trs.rules in
+  let rec comp r =
+    let rhs = r.r_rhs in
+    let all_rules = List.map (fun r -> top_down (apply_head r)) rules in
+    let rhs = saturate_step all_rules rhs in
+    Option.map (fun rhs -> { r with r_rhs = rhs }) rhs
+  in
+  let rules = first_of_list comp rules in
+  Option.map (fun rules ->
+      { trs with rules = rules }
+    ) rules
 
 (* E + {s = t}, R ~> E + {s = u}, R if t ->* u *)
 let simplify trs = assert false
@@ -206,18 +227,7 @@ let deduce trs = assert false
 
 (* opportunities for optimization here *)
 let rec saturate step_funs trs =
-  (* we assume step_funs are in rough order of cost *)
-  let rec saturate_step step_funs =
-    match step_funs with
-    | f::fs ->
-       begin
-         match f trs with
-         | None -> saturate_step fs
-         | Some trs' -> Some trs'
-       end
-    | [] -> None
-  in
-  match saturate_step step_funs with
+  match saturate_step step_funs trs with
   | None -> trs
   | Some trs' -> saturate step_funs trs'
 
@@ -237,14 +247,7 @@ let () =
   (* We magically know that this order will do *)
   let test_prec = list_to_prec [["1"];["m"];["i"]] in
   global_prec := test_prec;
-  (* for i = 0 to List.length trs.eqns - 1 do *)
-  (*   let eq = List.nth trs.eqns i in *)
-  (*   let lhs = eq.eq_lhs in *)
-  (*   let rhs = eq.eq_rhs in *)
-  (*   let is_gt = lpo test_prec lhs rhs in *)
-  (*   printf "%a > %a   %B\n" print_term lhs print_term rhs is_gt; *)
-  (* done; *)
-  let trs = saturate [delete; orient] trs in
+  let trs = saturate [delete; orient; compose] trs in
   print_trs stdout trs;
   glob_in := "f(X,Y) -> g(Y,X)";
   glob_cursor := 0;
