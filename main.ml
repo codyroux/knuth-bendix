@@ -3,6 +3,7 @@ open Types
 open Print
 open Parse
 open Rew
+open Narrow
 
 (* E + {s = s}, R  ~> E, R *)
 let delete trs =

@@ -43,9 +43,9 @@ and lex_lpo prec ts us =
 
 module Var =
   struct
-    type t = bool * string
-    let compare (b1, s1) (b2, s2) =
-      match Bool.compare b1 b2 with
+    type t = int * string
+    let compare (i1, s1) (i2, s2) =
+      match Int.compare i1 i2 with
       | 0 -> String.compare s1 s2
       | x -> x
   end
@@ -54,8 +54,20 @@ module VarMap = Map.Make(Var)
 
 let rec var_apply map t =
   match t with
-  | Var (b, s) -> map b s
+  | Var (i, s) -> map i s
   | App (f, ts) -> App (f, List.map (var_apply map) ts)
+
+let rec fold_var base merge var t =
+  match t with
+  | Var (i, s) -> var i s
+  | App (_, ts) -> fold_var_list base merge var ts
+and fold_var_list base merge var ts =
+  match ts with
+  | [] -> base
+  | t::ts ->
+     let vt = fold_var base merge var t in
+     let vts = fold_var_list base merge var ts in
+     merge vt vts
 
 let rec lift_opt l =
   match l with
@@ -111,29 +123,30 @@ let rec saturate_step step_funs x =
      end
   | [] -> None
 
-let set_var_tag b t =
+let set_var_tag i t =
   let apply _ s =
-    Var (b, s)
+    Var (i, s)
   in
   var_apply apply t
 
 let term_subst subst t =
-  let apply b s =
-    if VarMap.mem (b, s) subst then VarMap.find (b, s) subst
-    else Var (b, s)
+  let apply i s =
+    if VarMap.mem (i, s) subst then VarMap.find (i, s) subst
+    else Var (i, s)
   in
   var_apply apply t
 
+let add_binding subst i s t =
+  match VarMap.find_opt (i, s) subst with
+  | None -> Some (VarMap.add (i, s) t subst)
+  | Some u ->
+     if t = u then Some subst
+     else None
+  
+
 let rec term_match subst p t =
   match p, t with
-  | Var (b, s), _ ->
-     begin
-       match VarMap.find_opt (b, s) subst with
-       | None -> Some (VarMap.add (b, s) t subst)
-       | Some u ->
-          if t = u then Some subst
-          else None
-     end
+  | Var (i, s), _ -> add_binding subst i s t
   | App (f, ts), App (g, us) when f = g ->
      begin
        try
