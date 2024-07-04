@@ -43,8 +43,8 @@ and lex_lpo prec ts us =
 
 module Var =
   struct
-    type t = int * string
-    let compare (i1, s1) (i2, s2) =
+    type t = var
+    let compare { level = i1; name = s1 } { level = i2; name = s2 } =
       match Int.compare i1 i2 with
       | 0 -> String.compare s1 s2
       | x -> x
@@ -54,12 +54,12 @@ module VarMap = Map.Make(Var)
 
 let rec var_apply map t =
   match t with
-  | Var (i, s) -> map i s
+  | Var v -> map v
   | App (f, ts) -> App (f, List.map (var_apply map) ts)
 
 let rec fold_var base merge var t =
   match t with
-  | Var (i, s) -> var i s
+  | Var v -> var v
   | App (_, ts) -> fold_var_list base merge var ts
 and fold_var_list base merge var ts =
   match ts with
@@ -124,21 +124,21 @@ let rec saturate_step step_funs x =
   | [] -> None
 
 let set_var_tag i t =
-  let apply _ s =
-    Var (i, s)
+  let apply v =
+    Var { v with level = i }
   in
   var_apply apply t
 
 let term_subst subst t =
-  let apply i s =
-    if VarMap.mem (i, s) subst then VarMap.find (i, s) subst
-    else Var (i, s)
+  let apply v =
+    if VarMap.mem v subst then VarMap.find v subst
+    else Var v
   in
   var_apply apply t
 
-let add_binding subst i s t =
-  match VarMap.find_opt (i, s) subst with
-  | None -> Some (VarMap.add (i, s) t subst)
+let add_binding subst v t =
+  match VarMap.find_opt v subst with
+  | None -> Some (VarMap.add v t subst)
   | Some u ->
      if t = u then Some subst
      else None
@@ -146,7 +146,7 @@ let add_binding subst i s t =
 
 let rec term_match subst p t =
   match p, t with
-  | Var (i, s), _ -> add_binding subst i s t
+  | Var v, _ -> add_binding subst v t
   | App (f, ts), App (g, us) when f = g ->
      begin
        try
