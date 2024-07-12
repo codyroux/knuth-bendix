@@ -93,7 +93,7 @@ let () =
   print_trs stdout trs;
   glob_in := "f(X,Y) -> g(Y,X)";
   glob_cursor := 0;
-  let vars = ["X"; "Y"] in
+  let vars = ["X"; "Y"; "Z"] in
   let rule = parse_rule vars () in
   printf "%a\n" print_rule rule;
   glob_in := "f(f(a,b),f(c,d))";
@@ -110,9 +110,20 @@ let () =
     | None -> t
     | Some t' -> repeat f t'
   in
+  glob_in := "f(h(Z),Z)"; glob_cursor := 0;
+  let rule1 = parse_term vars () in
+  glob_in := "f(X,Y)"; glob_cursor := 0;
+  let rule2 = parse_term vars () in
+  let crs = unify VarMap.empty rule1 rule2 in
+  printf "%a\n" print_subst (Option.get crs);
   printf "%a\n" print_term (Option.get term0);
   printf "%a\n" print_term (Option.get term1);
   printf "%a\n" print_term (Option.get term2);
   printf "%a\n" print_term (repeat bottom_up term);
   printf "%a\n" print_term (repeat top_down term);
+  let crs = crit_all_rules trs.rules in
+  let print_crit out (l, r) =
+    fprintf out "%a <~ . ~> %a\n" print_term l print_term r
+  in
+  List.iter (fun cr -> printf "%a" print_crit cr) crs;
   ()

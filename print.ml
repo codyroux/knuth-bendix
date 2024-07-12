@@ -41,4 +41,9 @@ let print_vars out vars =
 let print_trs out trs =
   print_vars out trs.vars;
   print_eqns out trs.eqns;
-  print_rules out trs.rules;
+  print_rules out trs.rules
+
+let print_subst out subst =
+  fprintf out "subst:\n";
+  VarMap.iter (fun v t -> fprintf out "  %s ↦ %a\n" v.name print_term t) subst
+

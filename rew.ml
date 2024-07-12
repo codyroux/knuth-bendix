@@ -41,17 +41,6 @@ and lex_lpo prec ts us =
      else if t = u then lex_lpo prec ts us
      else false
 
-module Var =
-  struct
-    type t = var
-    let compare { level = i1; name = s1 } { level = i2; name = s2 } =
-      match Int.compare i1 i2 with
-      | 0 -> String.compare s1 s2
-      | x -> x
-  end
-
-module VarMap = Map.Make(Var)
-
 let rec var_apply map t =
   match t with
   | Var v -> map v
