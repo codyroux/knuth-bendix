@@ -2,6 +2,16 @@ open Types
 open Rew
 open Print
 
+type zip_loc =
+  { sym : string;
+    left_rev : term list;
+    (* here is the term! *)
+    right : term list;
+    parent : term_zip }
+and term_zip =
+  | Here
+  | There of zip_loc
+
 let get_max_var t =
   fold_var 0 (fun i j -> Int.max i j) (fun v -> v.level) t
 
@@ -50,24 +60,40 @@ let narrow_head t rule =
     (fun subst -> (term_subst subst rhs, subst))
     (unify VarMap.empty t lhs)
 
-let rec crit_rule_aux l r rule2 =
-  match l with
+(* "close" a zipper z with t in the hole, applying the substitution as
+   you go up *)
+let rec zip_with subst z t =
+  match z with
+  | Here -> t
+  | There {sym; left_rev; right; parent} ->
+     let left = List.map (term_subst subst) left_rev in
+     let right = List.map (term_subst subst) right in
+     let t = App (sym, List.rev_append left (t::right)) in
+     zip_with subst parent t 
+
+let rec splay z t =
+  match t with
   | Var _ -> []
   | App (f, ts) ->
-     let cs = List.concat_map (fun t -> crit_rule_aux t r rule2) ts in
-     match narrow_head l rule2 with
-     | None -> cs
-     | Some (r', subst) -> (term_subst subst r, r') :: cs
+     let here = (z, t) in
+     let z = { sym = f; left_rev = []; right = []; parent = z } in
+     let there = splay_list z ts in
+     here :: there
+and splay_list z ts =
+  match ts with
+  | [] -> []
+  | t::ts ->
+     let hd = splay (There {z with right = ts }) t in
+     let tail = splay_list {z with left_rev = t::z.left_rev } ts in
+     hd @ tail
+     
+
+let crit_rule_aux l r rule2 =
+  assert false
 
 (* Find all the criticial pairs of rule2 "against" rule1 *)
 let crit_rule rule1 rule2 =
-  let lhs1 = rule1.r_lhs in
-  let rhs1 = rule1.r_rhs in
-  let lhs2 = rule2.r_lhs in
-  let rhs2 = rule2.r_rhs in
-  let max = Int.max (get_max_var lhs1) (get_max_var rhs1) in
-  let rule2 = { r_lhs = freshen max lhs2; r_rhs = freshen max rhs2 } in
-  crit_rule_aux lhs1 rhs1 rule2
+  assert false
 
 (* the list of all (ordered) pairs in a list *)
 let list_pairs l =

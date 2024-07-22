@@ -121,6 +121,10 @@ let () =
   printf "%a\n" print_term (Option.get term2);
   printf "%a\n" print_term (repeat bottom_up term);
   printf "%a\n" print_term (repeat top_down term);
+  let t = List.nth trs.rules 0 in
+  let t = t.r_lhs in
+  printf "%a, splayed: %a\n"
+    print_term t print_term_list (List.map snd (splay Here t));
   let crs = crit_all_rules trs.rules in
   let print_crit out (l, r) =
     fprintf out "%a <~ . ~> %a\n" print_term l print_term r
