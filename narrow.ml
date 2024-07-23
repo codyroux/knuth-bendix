@@ -38,6 +38,7 @@ let rec unify subst t u =
   | Var v, _ when VarMap.mem v subst ->
      unify subst (VarMap.find v subst) u
   | Var v, _ when not (occurs v u) ->
+     let u = term_subst subst u in
      Some (add_binding subst v u)
   | _, Var v -> unify subst u t
   | App (f, ts), App (g, us) when f = g -> unify_list subst ts us
@@ -69,7 +70,7 @@ let rec zip_with subst z t =
      let left = List.map (term_subst subst) left_rev in
      let right = List.map (term_subst subst) right in
      let t = App (sym, List.rev_append left (t::right)) in
-     zip_with subst parent t 
+     zip_with subst parent t
 
 let rec splay z t =
   match t with
@@ -86,7 +87,7 @@ and splay_list z ts =
      let hd = splay (There {z with right = ts }) t in
      let tail = splay_list {z with left_rev = t::z.left_rev } ts in
      hd @ tail
-     
+
 let narrow_open z t rule =
   Option.map (fun (t, subst) ->
   (zip_with subst z t, subst))
@@ -103,8 +104,19 @@ let narrow_splay t rule =
     List.map (fun (z, t) -> narrow_open z t rule)
       (splay Here t)
   in
-  all_somes l
+  let l = all_somes l in
+  begin
+  if List.length l <> 0 then
+    List.iter (fun (r, subst) ->
+        Printf.printf
+          "found pair in rule %a vs %a with %a\n"
+          print_term t
+          print_rule rule
+          print_subst subst) l
+  end;
+  l
   
+
 
 let crit_rule_aux l r rule2 =
   let l = narrow_splay l rule2 in
