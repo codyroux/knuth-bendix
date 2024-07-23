@@ -87,15 +87,35 @@ and splay_list z ts =
      let tail = splay_list {z with left_rev = t::z.left_rev } ts in
      hd @ tail
      
+let narrow_open z t rule =
+  Option.map (fun (t, subst) ->
+  (zip_with subst z t, subst))
+    (narrow_head t rule)
+
+let rec all_somes l =
+  match l with
+  | [] -> []
+  | None::l -> all_somes l
+  | Some x::l -> x :: all_somes l
+
+let narrow_splay t rule =
+  let l =
+    List.map (fun (z, t) -> narrow_open z t rule)
+      (splay Here t)
+  in
+  all_somes l
+  
 
 let crit_rule_aux l r rule2 =
-  assert false
+  let l = narrow_splay l rule2 in
+  List.map (fun (r1, subst) -> (r1, term_subst subst r)) l
 
 (* Find all the criticial pairs of rule2 "against" rule1 *)
 let crit_rule rule1 rule2 =
-  assert false
+  crit_rule_aux rule1.r_lhs rule1.r_rhs rule2
 
-(* the list of all (ordered) pairs in a list *)
+(* the list of all (ordered) pairs of elements drawn from a list, aka
+   [ (x, y) | x, y <- l ] *)
 let list_pairs l =
   let rec list_all_pairs l1 l2 =
     match l1 with
