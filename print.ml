@@ -3,7 +3,7 @@ open Types
 
 let rec print_term out t =
   match t with
-  | Var v -> fprintf out "%s" v.name
+  | Var v -> fprintf out "%s%d" v.name v.level
   | App (f, ts) ->
      fprintf out "%s" f;
      if not (List.is_empty ts)

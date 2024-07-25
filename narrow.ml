@@ -55,8 +55,10 @@ and unify_list subst ts us =
   | _, _ -> None
 
 let narrow_head t rule =
-  let lhs = rule.r_lhs in
-  let rhs = rule.r_rhs in
+  (* FIXME: optimize this by computing once and passing around. *)
+  let max = get_max_var t in
+  let lhs = freshen max rule.r_lhs in
+  let rhs = freshen max rule.r_rhs in
   Option.map
     (fun subst -> (term_subst subst rhs, subst))
     (unify VarMap.empty t lhs)
@@ -72,6 +74,8 @@ let rec zip_with subst z t =
      let t = App (sym, List.rev_append left (t::right)) in
      zip_with subst parent t
 
+(* The splay of a term is the list of all the zippers for each
+   location in t "below" z *)
 let rec splay z t =
   match t with
   | Var _ -> []
@@ -90,7 +94,7 @@ and splay_list z ts =
 
 let narrow_open z t rule =
   Option.map (fun (t, subst) ->
-  (zip_with subst z t, subst))
+      (zip_with subst z t, subst))
     (narrow_head t rule)
 
 let rec all_somes l =
@@ -127,3 +131,16 @@ let list_pairs l =
 let crit_all_rules rules =
   let all_pairs = list_pairs rules in
   List.concat_map (fun (r1, r2) -> crit_rule r1 r2) all_pairs
+
+let rec filter_all rules pairs =
+  match pairs with
+  | [] -> []
+  | (t, u)::pairs ->
+     let others = filter_all rules pairs in
+     if t = u then others
+     else
+       (* slight optimization here, we keep the reduced versions. *)
+       let t = norm rules t in
+       let u = norm rules u in
+       if t = u then others
+       else (t, u)::others

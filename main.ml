@@ -15,18 +15,33 @@ let delete trs =
 (* E, R + {s -> t} ~> E, R + {s -> u} if t ->* u *)
 let compose trs =
   let rules = trs.rules in
-  let rec comp r =
+  let comp r =
     let rhs = r.r_rhs in
-    let rhs = norm rules rhs in
+    let rhs = norm_step rules rhs in
     Option.map (fun rhs -> { r with r_rhs = rhs }) rhs
   in
   let rules = first_of_list comp rules in
   Option.map (fun rules ->
-      { trs with rules = rules }
-    ) rules
+      { trs with rules = rules })
+    rules
 
 (* E + {s = t}, R ~> E + {s = u}, R if t ->* u *)
-let simplify trs = assert false
+let simplify trs =
+  let rules = trs.rules in
+  let eqns = trs.eqns in
+  let rec simp e =
+    let lhs = e.eq_lhs in
+    let rhs = e.eq_rhs in
+    match norm_step rules lhs, norm_step rules rhs with
+    | Some lhs, Some rhs -> Some { eq_lhs = lhs; eq_rhs = rhs }
+    | Some lhs, None -> Some { eq_lhs = lhs; eq_rhs = rhs }
+    | None, Some rhs -> Some { eq_lhs = lhs; eq_rhs = rhs }
+    | None, None -> None
+  in
+  let eqns = first_of_list simp eqns in
+  Option.map (fun eqns ->
+      { trs with eqns = eqns })
+    eqns
 
 (* We keep a global precedence *)
 let global_prec = ref (fun f g -> 0) (* This is the most permissive
@@ -68,7 +83,7 @@ let collapse trs = assert false
 let deduce trs =
   let rules = trs.rules in
   let crits = crit_all_rules rules in
-  let crits = List.filter (fun (t, u) -> not (join rules t u)) crits in
+  let crits = filter_all rules crits in
   match crits with
   | [] -> None
   | _ ->
@@ -93,46 +108,21 @@ let () =
   (* We magically know that this order will do *)
   let test_prec = list_to_prec [["1"];["m"];["i"]] in
   global_prec := test_prec;
-  let trs = saturate [delete; orient; compose] trs in
+
+  let trs = saturate_n 30 [delete; simplify; orient; compose; deduce] trs in
   print_trs stdout trs;
-  glob_in := "f(X,Y) -> g(Y,X)";
-  glob_cursor := 0;
-  let vars = ["X"; "Y"; "Z"] in
-  let rule = parse_rule vars () in
-  printf "%a\n" print_rule rule;
-  glob_in := "f(f(a,b),f(c,d))";
-  glob_cursor := 0;
-  let term = parse_term vars () in
-  printf "%a\n" print_term term;
-  let term0 = apply_head rule term in
-  let bottom_up = bottom_up (apply_head rule) in
-  let term1 = bottom_up term in
-  let top_down = top_down (apply_head rule) in
-  let term2 = top_down term in
-  let rec repeat f t =
-    match f t with
-    | None -> t
-    | Some t' -> repeat f t'
-  in
-  glob_in := "f(h(Z),Z)"; glob_cursor := 0;
-  let rule1 = parse_term vars () in
-  glob_in := "f(X,Y)"; glob_cursor := 0;
-  let rule2 = parse_term vars () in
-  let crs = unify VarMap.empty rule1 rule2 in
-  printf "%a\n" print_subst (Option.get crs);
-  printf "%a\n" print_term (Option.get term0);
-  printf "%a\n" print_term (Option.get term1);
-  printf "%a\n" print_term (Option.get term2);
-  printf "%a\n" print_term (repeat bottom_up term);
-  printf "%a\n" print_term (repeat top_down term);
-  let t = List.nth trs.rules 0 in
-  let t = t.r_lhs in
-  printf "%a, splayed: %a\n"
-    print_term t print_term_list (List.map snd (splay Here t));
-  let crs = crit_all_rules trs.rules in
-  let print_crit out (l, r) =
-    fprintf out "%a <~ . ~> %a\n" print_term l print_term r
-  in
-  List.iter (fun cr -> printf "%a" print_crit cr) crs;
-  printf "%a\n" print_trs (Option.get (deduce trs));
+
+
+  (* let rules = [List.nth rules 2] in *)
+  (* let vars = ["X"; "Y"; "Z"] in *)
+  (* glob_in := "m(Y,i(m(X,Y)))"; *)
+  (* glob_cursor := 0; *)
+  (* let t = parse_term vars () in *)
+  (* let t1 = norm rules t in *)
+  (* let t2 = norm_step rules t in *)
+  (* let p = List.nth rules 0 in *)
+  (* let p = p.r_lhs in *)
+  (* let sigma = Option.get @@ term_match VarMap.empty p t in *)
+  (* printf "%a//%a -> %a" print_term p print_term t print_subst sigma; *)
+  (* printf "%a -> %a\n" print_term t print_term (Option.get t2); *)
   ()

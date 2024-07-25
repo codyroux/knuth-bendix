@@ -130,13 +130,12 @@ let add_binding subst v t =
   | None -> Some (VarMap.add v t subst)
   | Some u ->
      if t = u then Some subst
-     else None
-  
+     else None  
 
 let rec term_match subst p t =
   match p, t with
   | Var v, _ -> add_binding subst v t
-  | App (f, ts), App (g, us) when f = g ->
+  | App (f, ps), App (g, ts) when f = g ->
      begin
        try
          List.fold_left2
@@ -145,9 +144,9 @@ let rec term_match subst p t =
              | None -> None
              | Some subst -> term_match subst p t
            )
-           (Some VarMap.empty)
+           (Some subst)
+           ps
            ts
-           us
        with
        (* FIXME: Potential footgun*)
        | Invalid_argument _ -> None
@@ -162,21 +161,27 @@ let apply_head rule t =
   | None -> None
   | Some sigma -> Some (term_subst sigma rhs)
 
+
 (* opportunities for optimization here *)
 let rec saturate step_funs trs =
   match saturate_step step_funs trs with
   | None -> trs
   | Some trs' -> saturate step_funs trs'
 
+(* opportunities for optimization here *)
+let rec saturate_n n step_funs trs =
+  match saturate_step step_funs trs with
+  | None -> trs
+  | Some trs' ->
+     if n <= 0 then trs'
+     else saturate_n (n-1) step_funs trs'
+
+(* Try applying all rules recursively until one fires *)
+let norm_step rules t =
+  let all_rules = List.map (fun r -> top_down (apply_head r)) rules in
+  saturate_step all_rules t
+
 (* normalize a term wrt rules top-down *)
 let norm rules t =
   let all_rules = List.map (fun r -> top_down (apply_head r)) rules in
-  saturate_step all_rules t
-  
-let join rules t u =
-  (* don't reduce if the terms are definitionally equal *)
-  if t = u then true
-  else
-    let t = norm rules t in
-    let u = norm rules u in
-    t = u
+  saturate all_rules t
