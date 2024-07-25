@@ -161,3 +161,22 @@ let apply_head rule t =
   match term_match VarMap.empty lhs t with
   | None -> None
   | Some sigma -> Some (term_subst sigma rhs)
+
+(* opportunities for optimization here *)
+let rec saturate step_funs trs =
+  match saturate_step step_funs trs with
+  | None -> trs
+  | Some trs' -> saturate step_funs trs'
+
+(* normalize a term wrt rules top-down *)
+let norm rules t =
+  let all_rules = List.map (fun r -> top_down (apply_head r)) rules in
+  saturate_step all_rules t
+  
+let join rules t u =
+  (* don't reduce if the terms are definitionally equal *)
+  if t = u then true
+  else
+    let t = norm rules t in
+    let u = norm rules u in
+    t = u

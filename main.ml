@@ -17,8 +17,7 @@ let compose trs =
   let rules = trs.rules in
   let rec comp r =
     let rhs = r.r_rhs in
-    let all_rules = List.map (fun r -> top_down (apply_head r)) rules in
-    let rhs = saturate_step all_rules rhs in
+    let rhs = norm rules rhs in
     Option.map (fun rhs -> { r with r_rhs = rhs }) rhs
   in
   let rules = first_of_list comp rules in
@@ -64,14 +63,19 @@ let orient trs =
 *)
 let collapse trs = assert false
 
-(* E, R ~> E + {s = t}, R if s <- . -> t is a critical pair of R*)
-let deduce trs = assert false
-
-(* opportunities for optimization here *)
-let rec saturate step_funs trs =
-  match saturate_step step_funs trs with
-  | None -> trs
-  | Some trs' -> saturate step_funs trs'
+(* E, R ~> E + {s = t}, R if s <- . -> t is a critical pair of R,
+   which is not joinable. *)
+let deduce trs =
+  let rules = trs.rules in
+  let crits = crit_all_rules rules in
+  let crits = List.filter (fun (t, u) -> not (join rules t u)) crits in
+  match crits with
+  | [] -> None
+  | _ ->
+     let new_eqns =
+       List.map (fun (t, u) -> { eq_lhs = t; eq_rhs = u }) crits
+     in
+     Some { trs with eqns = trs.eqns @ new_eqns }
 
 let read_whole_file filename =
     (* open_in_bin works correctly on Unix and Windows *)
@@ -130,4 +134,5 @@ let () =
     fprintf out "%a <~ . ~> %a\n" print_term l print_term r
   in
   List.iter (fun cr -> printf "%a" print_crit cr) crs;
+  printf "%a\n" print_trs (Option.get (deduce trs));
   ()

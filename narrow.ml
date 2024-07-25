@@ -104,19 +104,7 @@ let narrow_splay t rule =
     List.map (fun (z, t) -> narrow_open z t rule)
       (splay Here t)
   in
-  let l = all_somes l in
-  begin
-  if List.length l <> 0 then
-    List.iter (fun (r, subst) ->
-        Printf.printf
-          "found pair in rule %a vs %a with %a\n"
-          print_term t
-          print_rule rule
-          print_subst subst) l
-  end;
-  l
-  
-
+  all_somes l
 
 let crit_rule_aux l r rule2 =
   let l = narrow_splay l rule2 in
