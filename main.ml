@@ -48,6 +48,17 @@ let global_prec = ref (fun f g -> 0) (* This is the most permissive
                                         precendence, it only strictly
                                         smaller rhs *)
 
+let remove_first f l =
+  let rec remove_first_acc l acc =
+    match l with
+    | [] -> None
+    | e::es ->
+       match f e with
+       | None -> remove_first_acc es (e::acc)
+       | Some r -> Some (r, List.rev_append acc es)
+  in
+  remove_first_acc l []
+
 (* E + {s = t}, R ~> E, R + {s -> t} if s > t *)
 let orient trs =
   let eqns = trs.eqns in
@@ -60,23 +71,42 @@ let orient trs =
       Some { r_lhs = rhs; r_rhs = lhs }
     else None
   in
-  let rec remove_first l acc =
-    match l with
-    | [] -> None
-    | e::es ->
-       match orient e with
-       | None -> remove_first es (e::acc)
-       | Some r -> Some (r, List.rev_append acc es)
-  in
-  match remove_first eqns [] with
+  match remove_first orient eqns with
   | None -> None
   | Some (r, eqns) ->
      Some { trs with eqns = eqns; rules = r::trs.rules }
 
-(* E, R + {s -> t} ~> E + {v = t}, R if s "collapses to" v
-   see https://homepage.divms.uiowa.edu/~astump/papers/thesis-wehrman.pdf
+(* E, R + {s -> t} ~> E + {v = t}, R if s "collapses to" v, that is,
+   there is a rule l -> r that reduces s but s does not match any
+   subterm of l.  see
+   https://homepage.divms.uiowa.edu/~astump/papers/thesis-wehrman.pdf
 *)
-let collapse trs = assert false
+let collapse trs =
+  let rules = trs.rules in
+  (* get the first rule that fires along with the reduction *)
+  let rec red_first rs t =
+    match rs with
+    | [] -> None
+    | r::rs ->
+       match top_down (apply_head r) t with
+       | Some u -> Some (r, u)
+       | None -> red_first rs t
+  in
+  let col r =
+    let lhs = r.r_lhs in
+    match red_first rules lhs with
+    | None -> None
+    | Some (r', v) ->
+       (* this is the collapse side condition *)
+       if Option.is_none (top_down (apply_head r) r'.r_lhs) then
+         Some { eq_lhs = v; eq_rhs = r.r_rhs }
+       else None
+  in
+  match remove_first col rules with
+  | None -> None
+  | Some (eq, rules) ->
+     Some { trs with eqns = eq::trs.eqns; rules = rules }
+
 
 (* E, R ~> E + {s = t}, R if s <- . -> t is a critical pair of R,
    which is not joinable. *)
@@ -109,6 +139,6 @@ let () =
   let test_prec = list_to_prec [["1"];["m"];["i"]] in
   global_prec := test_prec;
 
-  let trs = saturate [delete; simplify; orient; compose; deduce] trs in
+  let trs = saturate [delete; simplify; orient; compose; deduce; collapse] trs in
   print_trs stdout trs;
   ()
