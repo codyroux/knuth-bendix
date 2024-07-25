@@ -45,5 +45,5 @@ let print_trs out trs =
 
 let print_subst out subst =
   fprintf out "subst:\n";
-  VarMap.iter (fun v t -> fprintf out "  %s ↦ %a\n" v.name print_term t) subst
+  VarMap.iter (fun v t -> fprintf out "  %s%d ↦ %a\n" v.name v.level print_term t) subst
 

@@ -37,7 +37,7 @@ let rec unify subst t u =
   | Var v, Var v' when v = v' -> Some subst
   | Var v, _ when VarMap.mem v subst ->
      unify subst (VarMap.find v subst) u
-  | Var v, _ when not (occurs v u) ->
+  | Var v, _ when not (occurs v (term_subst subst u)) ->
      let u = term_subst subst u in
      Some (add_binding subst v u)
   | _, Var v -> unify subst u t

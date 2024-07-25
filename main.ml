@@ -109,20 +109,6 @@ let () =
   let test_prec = list_to_prec [["1"];["m"];["i"]] in
   global_prec := test_prec;
 
-  let trs = saturate_n 30 [delete; simplify; orient; compose; deduce] trs in
+  let trs = saturate [delete; simplify; orient; compose; deduce] trs in
   print_trs stdout trs;
-
-
-  (* let rules = [List.nth rules 2] in *)
-  (* let vars = ["X"; "Y"; "Z"] in *)
-  (* glob_in := "m(Y,i(m(X,Y)))"; *)
-  (* glob_cursor := 0; *)
-  (* let t = parse_term vars () in *)
-  (* let t1 = norm rules t in *)
-  (* let t2 = norm_step rules t in *)
-  (* let p = List.nth rules 0 in *)
-  (* let p = p.r_lhs in *)
-  (* let sigma = Option.get @@ term_match VarMap.empty p t in *)
-  (* printf "%a//%a -> %a" print_term p print_term t print_subst sigma; *)
-  (* printf "%a -> %a\n" print_term t print_term (Option.get t2); *)
   ()
