@@ -139,6 +139,6 @@ let () =
   let test_prec = list_to_prec [["1"];["m"];["i"]] in
   global_prec := test_prec;
 
-  let trs = saturate [delete; simplify; orient; compose; deduce; collapse] trs in
+  let trs = saturate [delete; simplify; orient; compose; collapse; deduce] trs in
   print_trs stdout trs;
   ()

@@ -1,0 +1,17 @@
+(VAR X Y Z)
+(THEORY
+  (EQUATIONS
+  )
+)
+(RULES
+  i(m(X5,Y5)) -> m(i(Y5),i(X5))
+	i(i(X1)) -> X1
+	i(1) -> 1
+	m(X1,m(i(X1),Z0)) -> Z0
+	m(i(X1),m(X1,Z0)) -> Z0
+	m(m(X0,Y0),Z0) -> m(X0,m(Y0,Z0))
+	m(i(X0),X0) -> 1
+	m(X0,i(X0)) -> 1
+	m(X0,1) -> X0
+	m(1,X0) -> X0
+)
