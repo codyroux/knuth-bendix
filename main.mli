@@ -7,3 +7,4 @@ val orient : Types.trs -> Types.trs option
 val collapse : Types.trs -> Types.trs option
 val deduce : Types.trs -> Types.trs option
 val read_whole_file : string -> string
+val main : unit -> unit

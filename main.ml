@@ -128,17 +128,32 @@ let read_whole_file filename =
     let s = really_input_string ch (in_channel_length ch) in
     close_in ch;
     s
+
 (* Run with: *)
 (* ocamlbuild -r main.native && ./main.native *)
-let () =
-  glob_in := read_whole_file "group.trs";
+let main () =
+  if Array.length Sys.argv <> 2 then
+    begin
+      fprintf stderr "Error: %s: exepected a file input.\n" Sys.argv.(0);
+      exit 1;
+    end;
+  let in_file = Sys.argv.(1) in
+  printf "Reading from %s...\n" in_file;
+  glob_in := read_whole_file in_file;
   glob_cursor := 0;
   let trs = parse_spec () in
+  printf "\n########## Input system ##########\n\n";
   print_trs stdout trs;
   (* We magically know that this order will do *)
   let test_prec = list_to_prec [["1"];["m"];["i"]] in
   global_prec := test_prec;
 
   let trs = saturate [delete; simplify; orient; compose; collapse; deduce] trs in
+  printf "\n########## Output system ##########\n\n";
   print_trs stdout trs;
-  ()
+  exit 0
+
+(* Run with: *)
+(* ocamlbuild -r main.native && ./main.native group.trs *)
+let () =
+  main ()
