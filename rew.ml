@@ -185,3 +185,98 @@ let norm_step rules t =
 let norm rules t =
   let all_rules = List.map (fun r -> top_down (apply_head r)) rules in
   saturate all_rules t
+
+(* A very rough attempt to guess an LPO precedence: basically try to take the equations left-to-right, and order the head symbol greater than the right symbols if possible, or equivalent if possible, otherwise incomparable. *)
+
+module FSet = Set.Make(String)
+
+let rec all_syms t =
+  match t with
+  | Var _ -> FSet.empty
+  | App (f, ts) ->
+     let all_ts =
+       List.fold_left
+         (fun s t -> FSet.union s @@ all_syms t)
+         FSet.empty ts
+     in
+     FSet.add f all_ts
+
+let reaches f eqn =
+  match eqn.eq_lhs with
+  | Var _ -> FSet.empty
+  | App (g, _) when g = f ->
+     all_syms eqn.eq_rhs
+  | _ -> FSet.empty
+
+let reaches_all f eqns =
+  List.fold_left
+    (fun s e -> FSet.union s @@ reaches f e)
+    FSet.empty eqns
+
+let get_all_syms vars eqns =
+  let vars = FSet.of_list vars in
+  let all_syms =
+    List.fold_left
+      (fun s e ->
+        FSet.union s @@
+          FSet.union
+            (all_syms e.eq_lhs)
+            (all_syms e.eq_rhs))
+      FSet.empty eqns
+  in
+  FSet.to_list @@ FSet.diff all_syms vars
+
+
+module SMap = Hashtbl.Make(String)
+
+(* Just stolen from
+   https://en.wikipedia.org/wiki/Tarjan%27s_strongly_connected_components_algorithm *)
+(* The vertices here are just symbol names, and the edges are of the
+   form f -> g if f(t1,..., tn) == u and g occurs in u, for some
+   equation in the list. *)
+let tarjan vertices eqns =
+  let index = ref 0 in
+  let stack = ref [] in
+  let sccs = ref [] in
+  let v_index = SMap.create (List.length vertices) in
+  let lowlink = SMap.create (List.length vertices) in
+  let on_stack = SMap.create (List.length vertices) in
+  let rec strong_connect v =
+    SMap.add v_index v !index;
+    SMap.add lowlink v !index;
+    incr index;
+    stack := v :: !stack;
+    SMap.add on_stack v ();
+    let next = FSet.to_list @@ reaches_all v eqns in
+    for i = 0 to List.length next - 1 do
+      let w = List.nth next i in
+      if not @@ SMap.mem v_index w then
+        strong_connect w
+      else if SMap.mem on_stack w then
+        let v_low = SMap.find lowlink v in
+        let w_index = SMap.find v_index w in
+        SMap.add lowlink v (min v_low w_index);
+    done;
+    if SMap.find lowlink v = SMap.find v_index v then
+      let new_scc = ref [] in
+      while List.hd !stack <> v do
+        let w = List.hd !stack in
+        new_scc := w :: !new_scc;
+        SMap.remove on_stack w;
+        stack := List.tl !stack;
+      done;
+      let w = List.hd !stack in
+      new_scc := w :: !new_scc;
+      SMap.remove on_stack w;
+      stack := List.tl !stack;
+      sccs := !new_scc :: !sccs;
+  in
+  let rec go vertices =
+    match vertices with
+    | [] -> !sccs
+    | v :: vs -> 
+       if not @@ SMap.mem v_index v then
+         strong_connect v;
+       go vs
+  in
+  go vertices

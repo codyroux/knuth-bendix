@@ -1,8 +1,10 @@
 type precedence = string -> string -> int
-val list_to_prec : 'a list list -> 'a -> 'a -> int
+val list_to_prec : string list list -> precedence
 val lpo : precedence -> Types.term -> Types.term -> bool
 val lpo_eq : precedence -> Types.term -> Types.term -> bool
 val lex_lpo : precedence -> Types.term list -> Types.term list -> bool
+val get_all_syms : string list -> Types.eqn list -> string list
+val tarjan : string list -> Types.eqn list -> string list list
 val var_apply : (Types.var -> Types.term) -> Types.term -> Types.term
 val fold_var :
   'a -> ('a -> 'a -> 'a) -> (Types.var -> 'a) -> Types.term -> 'a

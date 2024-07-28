@@ -144,10 +144,11 @@ let main () =
   let trs = parse_spec () in
   printf "\n########## Input system ##########\n\n";
   print_trs stdout trs;
+
   (* We magically know that this order will do *)
   let test_prec = list_to_prec [["1"];["m"];["i"]] in
   global_prec := test_prec;
-
+  (* this is the workhorse saturation step from the KB algorithm *)
   let trs = saturate [delete; simplify; orient; compose; collapse; deduce] trs in
   printf "\n########## Output system ##########\n\n";
   print_trs stdout trs;
